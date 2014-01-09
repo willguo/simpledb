@@ -1,0 +1,77 @@
+Part 1:
+
+The Life of a Query:
+
+Step 1: simpledb.Parser.main() and simpledb.Parser.start()
+The query is first checked in main to assert that the number of arguments that are passed in fit the requirements, and then simpleDB.parser.start() is called. In simpleDB.parser.start(), Database.getCatalog().loadSchema(argv[0]) populates the simpleDB catalog using the catalog text file that is passed in. Statistics are then calculated for every table that is listed in the system catalog, through TableStats(tableid, IOCOSTPERPAGE). Next, it processes statements submitted by the user: processNextStatement(new ByteArrayInputStream(statementBytes).
+
+Step 2: simpledb.Parser.processNextStatement()
+This method carries out two key processes: it gets a physical plan for the query by calling handleQueryStatement((ZQuery)s) and then executes the query that is formulated (query.execute()) following this.
+
+Step 3: simpledb.Parser.handleQueryStatement()
+This method will instantiate a new Query object with a given transaction id. This query object is also assigned a logical plan (parseQueryLogicalPlan(tId, s)), and this logical plan is then utilized to create a physical plan for the query through the use of a DbIterator, given certain parameters (lp.physicalPlan(tId, TableStats.getStatsMap(), explain)). The query object is returned after these processes are carried out.
+
+Step 4: simpledb.Parser.parseQueryLogicalPlan()
+A new instance of logical plan is created for query is passed in. The tables of the from clause are fetched from the catalog if they exist, and then stepped through and scanned. These are stored to the logical plan (lp.addScan(id, name)). Similarly, the where clause is now parsed by invoking processExpression(tid, wx, lp), and filter/join nodes are created as necessary. Next, group by fields are fetched from the inputted query (if they exist) and stored. Then, the select list for the given query is stepped through, while taking note of/handling aggregates and checking for query validity. If an aggregate is found in the select list, the aggregate field/values are grouped and added to the logical plan (lp.addAggregate(aggFun, aggField, groupByField)). Now, all of the data that has been parsed from the input query is to be sorted by q.getOrderBy() if an order exists for the sorting of the data. The query is parsed for an order by field and this value is stored if it exists (for future use in storing). The logical plan that is created for the query is then returned after all of this takes place.
+
+Step 5: simpledb.Parser.processExpression()
+This step is responsible for processing the where clause(s) that are passed from parsing the inputted query. The operands are retrieved by the call wx.getOperands(), and based on the operator, which varies, the conditions for the joins are set. Thus, new filter/join nodes are created when necessary in order to handle multiple conditions parsed in the where clause. If a nested subquery exists, that subquery is sent to a process similar to that of the initial query. Conditions that require a join between more than one nodes are invoked and stored by lp.addJoin(tab1field, tab2field, op). Conditions that require filtering of a node are processed and stored by lp.addFilter(column, op, compValue). Each possible plan for the query is processed and stored similarly.
+
+Step 6:
+The query now has a logical plan that is used to create a physical plan. A set of all possible logical plans for the input query has been generated and stored as a physical plan (which can be iterated through). The query has now been handled.
+
+
+Part 6.1
+We did the query using the database for 0.001 because it would be faster.
+Our join structure looks like 
+π(d.fname,d.lname),card:3008
+                            |
+                            ⨝(a.id=c.pid),card:3008
+  __________________________|___________________________
+  |                                                    |
+  σ(a.lname=Spicer),card:1                             ⨝(m.mid=c.mid),card:3008
+  |                                    ________________|_________________
+  σ(a.fname=John),card:1               |                                |
+  |                                    ⨝(d.id=m.did),card:278           |
+  |                           _________|_________                       |
+  |                           |                 |                     scan(Casts c)
+scan(Actor a)               scan(Director d)  scan(Movie_Director m)
+
+The orderJoins get this value based on the helper function provided which is the countSubplanCost. It does make sense that the orderJoin function would return this function because after scanning at the actor table, and selecting the table based on the first name and last name, the cardinality of the resulting join is 1. So we would do that on the Actor table.
+We would also join the Movie Director table with the Director table because the join caused by these two functions created a lower cardinality which in turn would reduce the cost on the next step. After that we join the Cast table with the result of the previous join to get the condition where m.mid=c.mid.
+In the end we would join the result from the Actor Table with the result from the Cast,MovieDirector, and DirectorTable as the last step to get the end result.
+
+Part 6.2
+We decided to run this query:
+select m.name,m.year  
+from Actor a, Casts c, Movie m
+where a.id=c.pid and c.mid=m.id
+and a.fname='Clint';
+
+π(m.name,m.year),card:3008
+                   |
+                   ⨝(a.id=c.pid),card:3008
+  _________________|_________________
+  |                                 |
+  σ(a.fname=Clint),card:1           ⨝(m.id=c.mid),card:3008
+  |                          _______|________
+scan(Actor a)                |              |
+                           scan(Movie m)  scan(Casts c)
+
+This is the query plan tree that is generated by orderJoins
+If you notice that this plan is similar to the previous generated plan
+We can see that in the Actor table, the most obvious thing to do to minimize the cost is look for the specified name. Since this will get the cardinality of the resulting table to become 1.
+Then we just scan the Movie and Cast table to get the join of the table. then the resulting table would be joined with the resulting Actor Table as the last step.
+
+
+
+
+
+
+In this project we did not do any change to the API. What we did was just imported some new module like java.lang.Math and java.util.ArrayList to help us implement some of the required methods.
+
+We implemented all the funcionality of this projects except for the locks. 
+
+In this project we spent around 3 days to finish and debug the code. We thought that part 3 was kind of confusing because sometimes we will fail the test just because we missed the margin by 0.001, which apparently a lot of people went through. In addition in part 1 there was some difficulty to follow the plan and figuring out what was going on in Parser.java.
+
+
